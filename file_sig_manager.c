@@ -60,6 +60,10 @@ void add_signature(const char *filepath, const char *sig_name, int footer_bytes_
         if (footer_bytes_to_read > MAX_SIG_LEN)
             footer_bytes_to_read = MAX_SIG_LEN;
 
+        // 파일 크기보다 긴 Footer를 요청하면 파일 끝 전체만 사용
+        if (filesize < footer_bytes_to_read)
+            footer_bytes_to_read = (int)filesize;
+
         // 파일 끝에서 footer_bytes_to_read 만큼 앞으로 이동
         fseek(target_fp, -footer_bytes_to_read, SEEK_END);
 
@@ -82,6 +86,11 @@ void add_signature(const char *filepath, const char *sig_name, int footer_bytes_
     FILE *db_fp = fopen(DB_FILE, "rb+");
     if (!db_fp)
         db_fp = fopen(DB_FILE, "wb+");
+    if (!db_fp)
+    {
+        perror("DB 파일 열기 실패");
+        return;
+    }
 
     // DB 파일 끝으로 이동하여 ID 부여 및 데이터 쓰기
     fseek(db_fp, 0, SEEK_END);

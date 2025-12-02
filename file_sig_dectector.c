@@ -28,9 +28,9 @@ int main(int argc, char *argv[])
     long file_size = ftell(target_fp);
     rewind(target_fp); // 파일 포인터를 다시 처음(0)으로 초기화
 
-    // 대상 파일 Header 읽기 (DB의 최대 시그니처 길이만큼 미리 읽음)
+    // 대상 파일 Header 읽기 (실제 읽힌 바이트 수를 기록)
     unsigned char file_header[MAX_SIG_LEN];
-    fread(file_header, 1, MAX_SIG_LEN, target_fp);
+    size_t header_read = fread(file_header, 1, MAX_SIG_LEN, target_fp);
 
     // 2. DB 파일 열기
     FILE *db_fp = fopen(DB_FILE, "rb");
@@ -54,12 +54,17 @@ int main(int argc, char *argv[])
         if (record.is_deleted)
             continue; // 삭제된 항목 패스
 
-        // 비교할 길이 결정 (저장된 Header 길이와 8바이트 중 작은 값)
-        // 보통 매직넘버는 4~8바이트가 핵심이므로 효율성을 위함
-        int compare_len = (record.header_len > 8) ? 8 : record.header_len;
+        // 비교할 길이 결정 (DB 길이, 실제 읽힌 길이, 8바이트 중 최소값)
+        int compare_len = record.header_len;
+        if (compare_len > 8)
+            compare_len = 8;
+        if (compare_len > (int)header_read)
+            compare_len = (int)header_read;
+        if (compare_len <= 0)
+            continue; // 유효하지 않은 시그니처는 스킵
 
         // [1차 검사] 메모리 비교 (Header 확인)
-        if (memcmp(file_header, record.header, compare_len) == 0)
+        if (memcmp(file_header, record.header, (size_t)compare_len) == 0)
         {
 
             int footer_match = 1; // Footer 일치 여부 확인용 변수 (기본값: 1)
